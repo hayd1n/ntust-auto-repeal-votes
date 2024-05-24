@@ -1,7 +1,22 @@
-# Tauri + SvelteKit + TypeScript
+# NTUST Auto Repeal Votes Application
 
-This template should help get you started developing with Tauri, SvelteKit and TypeScript in Vite.
+I just want to see final grades, I don't care about course evaluations.  
+This app is designed for you. Save time together.  
 
-## Recommended IDE Setup
+https://github.com/CRT-HAO/ntust-auto-repeal-votes/assets/31580253/4317a9c5-2402-4017-9cfc-adf9cf538954
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+## Technology Stack
+
+[Tauri](https://tauri.app/) + [Rust](https://www.rust-lang.org/) + [Svelte](https://svelte.dev/) + [TypeScript](https://www.typescriptlang.org/)
+
+## Development
+
+```shell
+bun run tauri dev
+```
+
+## Build
+
+```shell
+bun run tauri build
+```
