@@ -1,7 +1,8 @@
 {
   "name": "ntust-auto-repeal-votes",
-  "version": "0.0.0",
-  "description": "",
+  "version": "0.1.0",
+  "description": "NTUST Auto Repeal Votes Application",
+  "author": "CRT-HAO",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
