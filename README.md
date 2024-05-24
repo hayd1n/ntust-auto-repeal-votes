@@ -3,7 +3,7 @@
 I just want to see final grades, I don't care about course evaluations.  
 This app is designed for you. Save time together.  
 
-https://github.com/CRT-HAO/ntust-auto-repeal-votes/assets/31580253/4317a9c5-2402-4017-9cfc-adf9cf538954
+https://github.com/CRT-HAO/ntust-auto-repeal-votes/assets/31580253/ab7ee9c3-13ac-43e0-9963-b005bb7def77
 
 ## Technology Stack
 
