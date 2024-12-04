@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "ntust",
+  "description": "Capability for the ntust window",
+  "windows": ["ntust"],
+  "remote": {
+    "urls": ["https://*.ntust.edu.tw"]
+  },
+  "permissions": ["core:default"]
+}

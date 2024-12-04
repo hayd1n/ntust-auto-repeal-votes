@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "rootDir": "./src-inject",
+        "strict": true,
+        "typeRoots": [
+            "src-inject/types"
+        ]
+    },
+    "include": [
+        "src-inject/**/*.ts"
+    ]
+}

@@ -1,201 +1,118 @@
 <script lang="ts">
-  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-  import { invoke } from "@tauri-apps/api/tauri";
-  import { WebviewWindow, currentMonitor } from "@tauri-apps/api/window";
-  import { onMount } from "svelte";
-  import { sleep } from "../common";
-  import Button from "$lib/components/ui/button/button.svelte";
-  import { Separator } from "$lib/components/ui/separator";
-  import { appWindow } from "@tauri-apps/api/window";
+  import { Button } from "$lib/components/ui/button";
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
+  import {
+    hideLoginWindow,
+    logout,
+    refreshInfo,
+    showLoginWindow,
+  } from "$lib/commands";
+  import { onMount } from "svelte";
+  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import type { Course } from "$lib/course";
+  import { ChevronRight } from "lucide-svelte";
+  import { userState } from "$lib/states.svelte";
 
-  const HOME_URL =
-    "https://stuinfosys.ntust.edu.tw/JudgeCourseServ/JudgeCourse/ListJudge";
-  const POST_URL =
-    "https://stuinfosys.ntust.edu.tw/JudgeCourseServ/JudgeQuestion/ListJudge";
+  let dialogOpen = $state(false);
 
-  type CourseInfo = {
-    courseNo: string;
-    courseName: string;
-    payload: string;
-  };
+  let logined: boolean | null = $state(null); // null: not sure, true: logined, false: not logined
 
-  let innerHeight = 0;
-
-  let url = "unknown";
-
-  let courses: CourseInfo[];
-
-  let logined = false;
-
-  let topBarRef: HTMLElement | null = null;
-
-  let readyDialogShow = false;
-
-  let dryRun = false;
-
-  $: scrollAreaHeight = topBarRef ? innerHeight - topBarRef.clientHeight : 0;
-
-  async function findCourses() {
-    await invoke("find_courses");
+  function handleLoginClick() {
+    dialogOpen = true;
   }
 
-  async function handleStartVotes() {
-    await invoke("start_votes", {
-      homeUrl: HOME_URL,
-      postUrl: POST_URL,
-      courses: courses,
-    });
+  async function handleOpenLoginWindow() {
+    await showLoginWindow();
+    dialogOpen = false;
   }
 
-  async function handleReadyToVotes() {
-    await appWindow.center();
-    await appWindow.setAlwaysOnTop(true);
-    await appWindow.setFocus();
-    readyDialogShow = true;
-  }
-
-  async function handleCancelVotes() {
-    await invoke("close_courses", {
-      courses: courses,
-    });
-
-    await appWindow.setAlwaysOnTop(false);
-  }
-
-  async function handleSubmitVotes() {
-    await invoke("submit_courses", {
-      homeUrl: HOME_URL,
-      courses: courses,
-      dryRun,
-    });
-  }
-
-  async function handleSubmitComplete() {
-    await sleep(1000);
-
-    await invoke("close_courses", {
-      courses: courses,
-    });
-
-    await sleep(1000);
-
-    await invoke("redirect_ntust", {
-      url: HOME_URL,
-    });
-
-    await appWindow.setAlwaysOnTop(false);
-
-    const ntustWindow = WebviewWindow.getByLabel("ntust");
-    ntustWindow?.setFocus();
+  async function handleLogoutClick() {
+    await logout();
   }
 
   onMount(() => {
-    let interval = setInterval(async () => {
-      url = await invoke("get_url");
+    let unlistenFoundCourses: UnlistenFn | null = null;
+    listen<{ courses: Course[] }>("foundCourses", async (event) => {
+      userState.courses = event.payload.courses.map((course) => ({
+        ...course,
+        selected: true, // default selected
+      }));
+      logined = true;
+      // if user is not voting, hide login window
+      if (!userState.voting) await hideLoginWindow();
+    }).then((unlistenFn) => {
+      unlistenFoundCourses = unlistenFn;
+    });
 
-      let currentLogined = url.includes(HOME_URL);
-      if (currentLogined && !logined) {
-        await sleep(1000);
-        findCourses();
-      }
-      logined = currentLogined;
+    let unlistenNotLogin: UnlistenFn | null = null;
+    listen("notLogin", (event) => {
+      logined = false;
+    }).then((unlistenFn) => {
+      unlistenNotLogin = unlistenFn;
+    });
 
-      if (url.includes("#courses")) {
-        let part = url.split("#courses")[1];
-        let decoded = decodeURI(part);
-        courses = JSON.parse(decoded);
-      } else {
-        courses = [];
-      }
+    const refreshInterval = setInterval(() => {
+      if (logined !== null) return;
+      refreshInfo();
     }, 1000);
 
-    let unlistenReadyToSubmit: UnlistenFn | null = null;
-    listen("readyToSubmit", handleReadyToVotes).then(
-      (u) => (unlistenReadyToSubmit = u)
-    );
-
-    let unlistenSubmitComplete: UnlistenFn | null = null;
-    listen("submitComplete", handleSubmitComplete).then(
-      (u) => (unlistenSubmitComplete = u)
-    );
-
     return () => {
-      clearInterval(interval);
-      if (unlistenReadyToSubmit) unlistenReadyToSubmit();
-      if (unlistenSubmitComplete) unlistenSubmitComplete();
+      if (unlistenFoundCourses) unlistenFoundCourses();
+      if (unlistenNotLogin) unlistenNotLogin();
+      clearInterval(refreshInterval);
     };
   });
 </script>
 
-<svelte:window bind:innerHeight />
-
-{#if logined}
-  <div class="w-screen h-screen flex flex-col justify-start">
-    <div class="w-full p-4 text-center" bind:this={topBarRef}>
-      <Button class="w-full" on:click={() => handleStartVotes()}
-        >Start Votes 開始投票</Button
-      >
-      <!-- svelte-ignore a11y-invalid-attribute -->
-      <a
-        href="javascript:;"
-        on:click={() => {
-          dryRun = true;
-          handleStartVotes();
-        }}>Dry Run</a
-      >
+{#if logined === null}
+  <p class="text-sm opacity-80">Waiting...</p>
+{:else if logined === false}
+  <Button onclick={handleLoginClick}>Login with NTUST account</Button>
+{:else if logined === true}
+  {#if userState.courses !== undefined}
+    <div class="flex flex-col gap-1 mt-10">
+      <p>
+        You have {userState.courses.length} courses that have not yet been evaluated.
+      </p>
+      <p>
+        <Button variant="link" size="sm" onclick={handleLogoutClick}
+          >Logout</Button
+        >
+        <Button
+          variant="link"
+          size="sm"
+          onclick={() => {
+            userState.voting = true;
+            showLoginWindow();
+          }}>Debug</Button
+        >
+      </p>
     </div>
+    <div class="grow"></div>
     <div>
-      <!-- <pre style="text-align: left;">{JSON.stringify(courses, null, 2)}</pre> -->
-      <div
-        class="w-full py-4 px-8 overflow-y-auto"
-        style="height: {scrollAreaHeight}px;"
-      >
-        <h4 class="mb-4 text-sm font-medium leading-none">Courses</h4>
-        {#each courses as course, i}
-          <div class="flex flex-nowrap justify-between items-center text-sm">
-            <div>{course.courseNo}</div>
-            <div>{course.courseName}</div>
-          </div>
-          <Separator class="my-2" />
-        {/each}
-      </div>
+      <Button size="icon" href="select-courses"><ChevronRight /></Button>
     </div>
-  </div>
-
-  <AlertDialog.Root bind:open={readyDialogShow}>
-    <AlertDialog.Content>
-      <AlertDialog.Header>
-        <AlertDialog.Title>You are ready to go!</AlertDialog.Title>
-        <AlertDialog.Description>
-          This action cannot be undone.
-          {#if dryRun}
-            <p class="text-red-500">This is dry run.</p>
-          {/if}
-        </AlertDialog.Description>
-      </AlertDialog.Header>
-      <AlertDialog.Footer>
-        <AlertDialog.Cancel on:click={handleCancelVotes}
-          >Cancel</AlertDialog.Cancel
-        >
-        <AlertDialog.Action on:click={handleSubmitVotes}
-          >Let's go</AlertDialog.Action
-        >
-      </AlertDialog.Footer>
-    </AlertDialog.Content>
-  </AlertDialog.Root>
-{:else}
-  <div class="w-screen h-screen flex flex-col justify-center items-center">
-    <div class="flex">
-      <div class="text-center">
-        <h1>Waiting for login...</h1>
-        <h1>等待手動登入中...</h1>
-      </div>
-    </div>
-  </div>
+  {/if}
 {/if}
-<!-- <p>{monitorSize.width}, {monitorSize.height}, {monitorSize.scaleFactor}</p> -->
-<!-- <p>{url}</p> -->
-<!-- <Button on:click={() => invoke("do_vote")}>Do Vote</Button> -->
-<!-- <Button on:click={handleFindCourses}>Find Courses</Button> -->
-<!-- <Button on:click={handleStartVotes}>Start Votes</Button> -->
+
+<AlertDialog.Root bind:open={dialogOpen}>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Please read these terms first</AlertDialog.Title>
+      <AlertDialog.Description class="text-red-600">
+        This application is not an official app of National Taiwan University of
+        Science and Technology. Before logging into your account through a
+        third-party application, please ensure you understand how the
+        application works. This application will not steal your account. If you
+        have any concerns, you are welcome to review and monitor the source code
+        of this application.
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Action on:click={handleOpenLoginWindow}
+        >Continue</AlertDialog.Action
+      >
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
